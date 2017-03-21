@@ -1,0 +1,31 @@
+{
+	"id": "node135",
+	"name": "worker-node135",
+	"profile": "k8s-worker",
+	"selector": {
+		"uuid": "7b90f4e8-2e6c-164a-af84-463ce7a5a7af"
+	},
+	"metadata": {
+                "int_ip_address": "10.10.129.135",
+                "k8s_controller_int_ip": "10.10.129.136",
+                "k8s_service_ip_range": "10.3.0.0/24",
+                "bgp_as": "64500",
+                "bgp_neighbors": ["10.30.118.162", "10.30.118.163"],
+		"container_runtime": "docker",
+                "ntp_server": "173.38.201.67",
+		"domain_name": "node135.ctocllab.cisco.com",
+                "ext_vlan": "160",
+                "ext_ip_address": "10.30.118.166/28",
+                "ext_gateway": "10.30.118.161",
+		"etcd_initial_cluster": "node136=http://node136.ctocllab.cisco.com:2380",
+		"k8s_cert_endpoint": "http://gem-master01.ctocllab.cisco.com:8080/assets",
+		"k8s_controller_endpoint": "https://node136.ctocllab.cisco.com",
+                "k8s_dns_service_ip": "10.3.0.10",
+                "k8s_etcd_endpoints": "http://node136.ctocllab.cisco.com:2379",
+		"pxe": "true",
+		"ssh_authorized_keys": [
+			"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC5apXdSDoo/Jlk28Ytam8XvJOONnGi2McrUZAaHnsOl0eDddbJoNzY1OOQjvbP4J3jXi+ekWqTQoR97WlGc6Vz2mDW3ZJF/7KGgFSLWTbM6aNpGvPLP2I6Ha2S8EzTXmLlPF0XtogaHRulal1yb1V7LHRM+GAz0RojHtPvgDtAjqywAPySX5bhWFRnk8GmT+2xrtAU4qc649YGInSsc2B5Acy5mO5Dt1kAEXvWBSJdZZoUn8sH8g43eLcASa33iaHVWpB0+s39NoXco9CRpRVPFOZ3ymwT2ZuO/AaORX8KXuPBXJUFWavP7kBvCG11nm2tYz1vP4QjYzGQLOF77rVR localadmin@gem-master01",
+			"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDcvyHsR2wu3e9WzJi2F03CQnFKON/VAjpgXGmanLnwaAh8ciB26w9ACkd/pb8D90JU/hMK18C+8nPsd66hhSJd49wUTAxbCDomvok/f44IITIqZUcMvkpBKXgrG5UwTrvgnZ2/S9fI/Yaoz3BYAQ5wu6FrbD4JOmY1AnKqsA7JaBgAxSDnUSOZDNoFUllUhZfH1liMCWPwqstfKsmqVUXnhjXPSikYGfOpxquqLNS9gHXoyB/5JH+OzA0A+chIy3M3EcH9G7cLN3jQ3hRFrP6NlmhEvzm+kSOZpU6szWpykjQlmKQeoXM4krp7p3MZGx86RHk2AXvwnoIqKnve772B daneyonhansen@Macintosh-5.local"
+		]
+	}
+}

@@ -1,4 +1,46 @@
 ---
+networkd:
+  units:
+    - name: 10-enp.network
+      contents: |
+        [Match]
+        Name=enp*s0
+        [Network]
+        Bond=bond0
+    - name: 20-bond0.netdev
+      contents: |
+        [NetDev]
+        Name=bond0
+        Kind=bond
+        [Bond]
+        Mode=802.3ad
+        TransmitHashPolicy=layer2
+        MIIMonitorSec=1
+    - name: 30-bond0.network
+      contents: |
+        [Match]
+        Name=bond0
+        [Network]
+        DHCP=true
+        VLAN=ext
+        NTP={{.ntp_server}}
+        [DHCP]
+        UseRoutes=false
+    - name: 40-ext.netdev
+      contents: |
+        [NetDev]
+        Name=ext
+        Kind=vlan
+        [VLAN]
+        Id={{.ext_vlan}}
+    - name: 50-ext.network
+      contents: |
+        [Match]
+        Name=ext
+        [Network]
+        Address={{.ext_ip_address}}
+        Gateway={{.ext_gateway}}
+
 systemd:
   units:
     - name: etcd2.service
@@ -64,7 +106,7 @@ systemd:
         Requires=k8s-assets.target
         After=k8s-assets.target
         [Service]
-        Environment=KUBELET_VERSION=v1.5.2_coreos.0
+        Environment=KUBELET_VERSION=v1.5.4_coreos.0
         Environment="RKT_OPTS=--uuid-file-save=/var/run/kubelet-pod.uuid \
           --volume dns,kind=host,source=/etc/resolv.conf \
           --mount volume=dns,target=/etc/resolv.conf \
@@ -84,7 +126,7 @@ systemd:
         ExecStartPre=-/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid
         ExecStart=/usr/lib/coreos/kubelet-wrapper \
           --api-servers=http://127.0.0.1:8080 \
-          --register-schedulable=true \
+          --register-schedulable=false \
           --cni-conf-dir=/etc/kubernetes/cni/net.d \
           --network-plugin=cni \
           --container-runtime={{.container_runtime}} \
@@ -194,7 +236,7 @@ storage:
             hostNetwork: true
             containers:
             - name: kube-proxy
-              image: quay.io/coreos/hyperkube:v1.5.2_coreos.0
+              image: quay.io/coreos/hyperkube:v1.5.4_coreos.0
               command:
               - /hyperkube
               - proxy
@@ -228,7 +270,7 @@ storage:
             hostNetwork: true
             containers:
             - name: kube-apiserver
-              image: quay.io/coreos/hyperkube:v1.5.2_coreos.0
+              image: quay.io/coreos/hyperkube:v1.5.4_coreos.0
               command:
               - /hyperkube
               - apiserver
@@ -289,7 +331,7 @@ storage:
           spec:
             containers:
             - name: kube-controller-manager
-              image: quay.io/coreos/hyperkube:v1.5.2_coreos.0
+              image: quay.io/coreos/hyperkube:v1.5.4_coreos.0
               command:
               - /hyperkube
               - controller-manager
@@ -335,7 +377,7 @@ storage:
             hostNetwork: true
             containers:
             - name: kube-scheduler
-              image: quay.io/coreos/hyperkube:v1.5.2_coreos.0
+              image: quay.io/coreos/hyperkube:v1.5.4_coreos.0
               command:
               - /hyperkube
               - scheduler
@@ -351,6 +393,57 @@ storage:
                   port: 10251
                 initialDelaySeconds: 15
                 timeoutSeconds: 15
+    - path: /etc/kubernetes/apiserver-parrotconfig.yaml
+      filesystem: root
+      contents:
+        inline: |
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - name: local
+            cluster:
+              server: "http://localhost:8080"
+          users:
+          - name: parrot
+          contexts:
+          - context:
+              cluster: local
+              user: parrot
+            name: parrot-context
+          current-context: parrot-context
+    - path: /etc/kubernetes/manifests/kube-parrot.yaml
+      filesystem: root
+      contents:
+        inline: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: kube-parrot
+            namespace: kube-system
+          spec:
+            hostNetwork: true
+            volumes:
+              - name: etc-kubernetes
+                hostPath:
+                  path: /etc/kubernetes
+            containers:
+              - name: parrot
+                image: sapcc/kube-parrot:v201611131942
+                volumeMounts:
+                  - mountPath: /etc/kubernetes
+                    name: etc-kubernetes
+                    readOnly: true
+                args:
+                  - --local_address={{.int_ip_address}}
+                  - --master_address=127.0.0.1
+                  - --service_subnet={{.k8s_service_ip_range}}
+                  - --as={{.bgp_as}}
+                  - --logtostderr
+                  - --v=5
+                  - --kubeconfig=/etc/kubernetes/apiserver-parrotconfig.yaml
+                  {{ range $neighbor := .bgp_neighbors }}
+                  - --neighbor={{$neighbor}}
+                  {{end}}
     - path: /srv/kubernetes/manifests/kube-dns-autoscaler-deployment.yaml
       filesystem: root
       contents:
