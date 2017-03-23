@@ -1,0 +1,7 @@
+{
+	"id": "n3k",
+	"name": "Cisco Nexus 3000",
+	"boot": {
+                "kernel": "/assets/nxos/n3k/nxos.7.0.3.I4.6.bin"
+	}
+}

@@ -1,26 +1,14 @@
 {
-	"id": "node136",
-	"name": "k8s controller",
-	"profile": "k8s-controller",
+	"id": "node21",
+	"name": "etcd-node21",
+	"profile": "etcd3",
 	"selector": {
-		"uuid": "dc3ff1ab-ff5c-a44a-be97-4e4f74eff727"
+		"mac": "a4:4c:11:13:b9:8e"
 	},
 	"metadata": {
-                "int_ip_address": "10.10.129.136",
-                "bgp_as": "64500",
-                "bgp_neighbors": ["10.30.118.162", "10.30.118.163"],
-		"container_runtime": "docker",
-		"domain_name": "node136.ctocllab.cisco.com",
-                "etcd_initial_cluster": "node22=http://node22.ctocllab.cisco.com:2380,node21=http://node21.ctocllab.cisco.com:2380,node20=http://node20.ctocllab.cisco.com:2380",
-		"etcd_name": "node136",
-                "ext_vlan": "160",
-                "ext_ip_address": "10.30.118.167/28",
-                "ext_gateway": "10.30.118.161",
-		"k8s_cert_endpoint": "http://gem-master01.ctocllab.cisco.com:8080/assets",
-		"k8s_dns_service_ip": "10.3.0.10",
-                "k8s_etcd_endpoints": "http://node136.ctocllab.cisco.com:2379,http://node22.ctocllab.cisco.com:2379,http://node21.ctocllab.cisco.com:2379",
-		"k8s_pod_network": "10.2.0.0/16",
-		"k8s_service_ip_range": "10.3.0.0/24",
+		"domain_name": "node21.ctocllab.cisco.com",
+                "etcd_name": "node21",
+		"etcd_initial_cluster": "node136=http://node136.ctocllab.cisco.com:2380,node22=http://node22.ctocllab.cisco.com:2380,node21=http://node21.ctocllab.cisco.com:2380",
 		"ntp_server": "173.38.201.67",
 		"pxe": "true",
 		"ssh_authorized_keys": [
