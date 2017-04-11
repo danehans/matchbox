@@ -1,22 +1,22 @@
 {
-	"id": "node136",
-	"name": "lb-node136",
+	"id": "node133",
+	"name": "lb-node133",
 	"profile": "load-balancer",
 	"selector": {
-		"uuid": "dc3ff1ab-ff5c-a44a-be97-4e4f74eff727"
+		"uuid": "f93f3f6f-42fb-224a-87a6-e4e3790d9344"
 	},
 	"metadata": {
                 "int_intf": "enp9s0",
                 "ext_intf": "enp10s0",
-                "hostname": "node136",
-                "ext_ip_address": "10.30.118.167/28",
+                "hostname": "node133",
+                "ext_ip_address": "10.30.118.171/28",
                 "ext_gateway": "10.30.118.161",
 		"ntp_server": "173.38.201.67",
-                "k8s_ext_vip": "10.30.118.172",
-                "k8s_int_vip": "10.10.129.137",
-                "keepalived_role": "master",
+                "keepalived_role": "backup",
                 "keepalived_password": "changeme",
                 "k8s_virtual_name": "kube-apiserver.ctocllab.cisco.com",
+                "k8s_ext_vip": "10.30.118.172",
+                "k8s_int_vip": "10.10.129.137",
                 "k8s_apiserver_names": ["node135.ctocllab.cisco.com"],
                 "k8s_cert_endpoint": "http://gem-master01.ctocllab.cisco.com:8080/assets",
 		"pxe": "true",

@@ -1,61 +1,38 @@
 ---
 networkd:
   units:
-    - name: 10-enp.network
+    - name: 10-int.network
       contents: |
         [Match]
-        Name=enp*s0
-        [Network]
-        Bond=bond0
-    - name: 20-bond0.netdev
-      contents: |
-        [NetDev]
-        Name=bond0
-        Kind=bond
-        [Bond]
-        Mode=802.3ad
-        TransmitHashPolicy=layer2
-        MIIMonitorSec=1
-    - name: 30-bond0.network
-      contents: |
-        [Match]
-        Name=bond0
+        Name={{.int_intf}}
+
         [Network]
         DHCP=true
-        VLAN=ext
         NTP={{.ntp_server}}
+
         [DHCP]
         UseRoutes=false
-    - name: 40-ext.netdev
-      contents: |
-        [NetDev]
-        Name=ext
-        Kind=vlan
-        [VLAN]
-        Id={{.ext_vlan}}
-    - name: 50-ext.network
+    - name: 20-ext.network
       contents: |
         [Match]
-        Name=ext
+        Name={{.ext_intf}}
         [Network]
         Address={{.ext_ip_address}}
         Gateway={{.ext_gateway}}
 
 systemd:
   units:
-    - name: etcd2.service
+    - name: etcd-member.service
       enable: true
       dropins:
         - name: 40-etcd-cluster.conf
           contents: |
             [Service]
-            Environment="ETCD_NAME={{.etcd_name}}"
-            Environment="ETCD_ADVERTISE_CLIENT_URLS=http://{{.domain_name}}:2379"
-            Environment="ETCD_INITIAL_ADVERTISE_PEER_URLS=http://{{.domain_name}}:2380"
-            Environment="ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379"
-            Environment="ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380"
-            Environment="ETCD_INITIAL_CLUSTER={{.etcd_initial_cluster}}"
-            Environment="ETCD_STRICT_RECONFIG_CHECK=true"
+            Environment="ETCD_IMAGE_TAG=v3.1.5"
+            ExecStart=
+            ExecStart=/usr/lib/coreos/etcd-wrapper gateway start \
+              --listen-addr=127.0.0.1:2379 \
+              --endpoints={{.k8s_etcd_endpoints}}
     - name: flanneld.service
       dropins:
         - name: 40-ExecStartPre-symlink.conf
@@ -126,7 +103,7 @@ systemd:
         ExecStartPre=-/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid
         ExecStart=/usr/lib/coreos/kubelet-wrapper \
           --api-servers=http://127.0.0.1:8080 \
-          --register-schedulable=false \
+          --register-schedulable=true \
           --cni-conf-dir=/etc/kubernetes/cni/net.d \
           --network-plugin=cni \
           --container-runtime={{.container_runtime}} \
@@ -241,6 +218,7 @@ storage:
               - /hyperkube
               - proxy
               - --master=http://127.0.0.1:8080
+              - --cluster-cidr={{.k8s_pod_network}}
               securityContext:
                 privileged: true
               volumeMounts:
@@ -275,6 +253,7 @@ storage:
               - /hyperkube
               - apiserver
               - --bind-address=0.0.0.0
+              - --storage-backend=etcd3
               - --etcd-servers={{.k8s_etcd_endpoints}}
               - --allow-privileged=true
               - --service-cluster-ip-range={{.k8s_service_ip_range}}
@@ -318,6 +297,7 @@ storage:
       filesystem: root
       contents:
         inline: |
+          FLANNELD_IFACE={{.int_intf}}
           FLANNELD_ETCD_ENDPOINTS={{.k8s_etcd_endpoints}}
     - path: /etc/kubernetes/manifests/kube-controller-manager.yaml
       filesystem: root
@@ -402,7 +382,7 @@ storage:
           clusters:
           - name: local
             cluster:
-              server: "http://localhost:8080"
+              server: "http://127.0.0.1:8080"
           users:
           - name: parrot
           contexts:
@@ -440,10 +420,8 @@ storage:
                   - --as={{.bgp_as}}
                   - --logtostderr
                   - --v=5
-                  - --kubeconfig=/etc/kubernetes/apiserver-parrotconfig.yaml
-                  {{ range $neighbor := .bgp_neighbors }}
-                  - --neighbor={{$neighbor}}
-                  {{end}}
+                  - --kubeconfig=/etc/kubernetes/apiserver-parrotconfig.yaml{{ range $neighbor := .bgp_neighbors }}
+                  - --neighbor={{$neighbor}}{{end}}
     - path: /srv/kubernetes/manifests/kube-dns-autoscaler-deployment.yaml
       filesystem: root
       contents:

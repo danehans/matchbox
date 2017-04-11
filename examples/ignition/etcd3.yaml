@@ -1,4 +1,25 @@
 ---
+networkd:
+  units:
+    - name: 10-int.network
+      contents: |
+        [Match]
+        Name={{.int_intf}}
+
+        [Network]
+        DHCP=true
+        NTP={{.ntp_server}}
+
+        [DHCP]
+        UseRoutes=false
+    - name: 20-ext.network
+      contents: |
+        [Match]
+        Name={{.ext_intf}}
+        [Network]
+        Address={{.ext_ip_address}}
+        Gateway={{.ext_gateway}}
+
 systemd:
   units:
     - name: etcd-member.service
@@ -7,7 +28,7 @@ systemd:
         - name: 40-etcd-cluster.conf
           contents: |
             [Service]
-            Environment="ETCD_IMAGE_TAG=v3.1.0"
+            Environment="ETCD_IMAGE_TAG=v3.1.5"
             Environment="ETCD_NAME={{.etcd_name}}"
             Environment="ETCD_ADVERTISE_CLIENT_URLS=http://{{.domain_name}}:2379"
             Environment="ETCD_INITIAL_ADVERTISE_PEER_URLS=http://{{.domain_name}}:2380"

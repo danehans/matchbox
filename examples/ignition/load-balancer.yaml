@@ -1,0 +1,230 @@
+---
+networkd:
+  units:
+    - name: 10-int.network
+      contents: |
+        [Match]
+        Name={{.int_intf}}
+
+        [Network]
+        DHCP=true
+        NTP={{.ntp_server}}
+
+        [DHCP]
+        UseRoutes=false
+    - name: 20-ext.network
+      contents: |
+        [Match]
+        Name={{.ext_intf}}
+        [Network]
+        Address={{.ext_ip_address}}
+        Gateway={{.ext_gateway}}
+
+systemd:
+  units:
+    - name: k8s-certs@.service
+      contents: |
+        [Unit]
+        Description=Fetch Kubernetes certificate assets
+        Requires=network-online.target
+        After=network-online.target
+        [Service]
+        ExecStartPre=/usr/bin/mkdir -p /etc/nginx/ssl/
+        ExecStart=/usr/bin/bash -c "[ -f /etc/nginx/ssl/%i ] || curl {{.k8s_cert_endpoint}}/tls/%i -o /etc/nginx/ssl/%i"
+    - name: k8s-assets.target
+      contents: |
+        [Unit]
+        Requires=k8s-certs@worker.pem.service
+        After=k8s-certs@worker.pem.service
+        Requires=k8s-certs@worker-key.pem.service
+        After=k8s-certs@worker-key.pem.service
+        Description=Load Kubernetes Assets
+        Requires=k8s-certs@apiserver.pem.service
+        After=k8s-certs@apiserver.pem.service
+        Requires=k8s-certs@apiserver-key.pem.service
+        After=k8s-certs@apiserver-key.pem.service
+        Requires=k8s-certs@ca.pem.service
+        After=k8s-certs@ca.pem.service
+    - name: nginx.service
+      enable: true
+      contents: |
+        [Unit]
+        Description=NGINX Service
+        Requires=k8s-assets.target
+        After=k8s-assets.target
+        Requires=docker.service
+        After=docker.service
+        [Service]
+        Restart=always
+        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/mkdir -p /etc/nginx
+        ExecStartPre=-/usr/bin/docker stop nginx
+        ExecStartPre=-/usr/bin/docker rm nginx
+        ExecStart=/usr/bin/docker run --rm --net=host \
+                --name nginx \
+                -v /etc/nginx/nginx.conf:/etc/nginx/nginx.conf:ro \
+                -v /etc/nginx/ssl:/etc/nginx/ssl:ro \
+                nginx:stable-alpine
+        ExecStop=/usr/bin/docker stop nginx
+        [Install]
+        WantedBy=multi-user.target
+    - name: keepalived.service
+      enable: true
+      contents: |
+        [Unit]
+        Description=Keepalived Service
+        Requires=docker.service
+        After=docker.service
+        [Service]
+        Restart=always
+        TimeoutStartSec=0
+        ExecStartPre=-/usr/bin/docker stop keepalived
+        ExecStartPre=-/usr/bin/docker rm keepalived
+        ExecStart=/usr/bin/docker run --rm --net=host \
+                --name keepalived \
+                --cap-add=NET_ADMIN \
+                -v /etc/keepalived/keepalived.cfg:/etc/keepalived/keepalived.cfg:ro \
+                cbolt/keepalived
+        ExecStop=/usr/bin/docker stop keepalived
+        [Install]
+        WantedBy=multi-user.target
+
+storage:
+  {{ if index . "pxe" }}
+  disks:
+    - device: /dev/sda
+      wipe_table: true
+      partitions:
+        - label: ROOT
+  filesystems:
+    - name: root
+      mount:
+        device: "/dev/sda1"
+        format: "ext4"
+        create:
+          force: true
+          options:
+            - "-LROOT"
+  {{ end }}
+  files:
+    - path: /etc/modules-load.d/nf.conf
+      filesystem: root
+      mode: 420
+      contents:
+        inline: |
+          nf_conntrack
+    - path: /etc/sysctl.d/nf.conf
+      filesystem: root
+      mode: 420
+      contents:
+        inline: |
+          net.ipv4.ip_nonlocal_bind=1
+    - path: /etc/keepalived/keepalived.cfg
+      filesystem: root
+      contents:
+        inline: |
+          global_defs {
+            router_id {{.hostname}}
+          }
+
+          vrrp_sync_group k8s {
+            group {
+              ext
+              int
+            }
+          }
+
+          vrrp_instance ext {
+            virtual_router_id 50
+            advert_int 1
+            {{ if eq .keepalived_role "master" }}priority  101
+            state     MASTER{{end}}
+            {{ if eq .keepalived_role "backup" }}priority  100
+            state     BACKUP{{end}}
+            interface {{.ext_intf}}
+            virtual_ipaddress {
+              {{.k8s_ext_vip}} dev {{.ext_intf}}
+            }
+            authentication {
+              auth_type PASS
+              auth_pass {{.keepalived_password}}
+            }
+          }
+
+          vrrp_instance int {
+            virtual_router_id 51
+            advert_int 1
+            {{ if eq .keepalived_role "master" }}priority  101
+            state     MASTER{{end}}
+            {{ if eq .keepalived_role "backup" }}priority  100
+            state     BACKUP{{end}}
+            interface {{.int_intf}}
+            virtual_ipaddress {
+              {{.k8s_int_vip}} dev {{.int_intf}}
+            }
+            authentication {
+              auth_type PASS
+              auth_pass {{.keepalived_password}}
+            }
+          }
+    - path: /etc/nginx/nginx.conf
+      filesystem: root
+      contents:
+        inline: |
+          user              nginx;
+          worker_processes  1;
+          error_log         /var/log/nginx/error.log warn;
+          pid               /var/run/nginx.pid;
+          
+          events {
+              worker_connections  1024;
+          }
+
+          http {
+              include            /etc/nginx/mime.types;
+              default_type       application/octet-stream;
+              log_format  main   '$remote_addr - $remote_user [$time_local] "$request" '
+                                 '$status $body_bytes_sent "$http_referer" '
+                                 '"$http_user_agent" "$http_x_forwarded_for"';
+              access_log         /var/log/nginx/access.log  main;
+              sendfile           on;
+              keepalive_timeout  65;
+              include            /etc/nginx/conf.d/*.conf;
+
+              upstream {{.k8s_virtual_name}} {
+                  {{ range $name := .k8s_apiserver_names }}server {{$name}}:443;{{end}}
+              }
+
+              server {
+                  listen       443 ssl;
+                  server_name  {{.k8s_virtual_name}};
+
+                  ssl_certificate           /etc/nginx/ssl/apiserver.pem;
+                  ssl_certificate_key       /etc/nginx/ssl/apiserver-key.pem;
+                  ssl_trusted_certificate   /etc/nginx/ssl/ca.pem;
+
+                  location / {
+                      proxy_pass                          https://{{.k8s_virtual_name}};
+                      proxy_buffering                     off;
+                      proxy_ssl_certificate               /etc/nginx/ssl/worker.pem;
+                      proxy_ssl_certificate_key           /etc/nginx/ssl/worker-key.pem;
+                      proxy_ssl_trusted_certificate       /etc/nginx/ssl/ca.pem;
+                      proxy_ssl_verify                    on;
+                      proxy_ssl_session_reuse             on;
+                      proxy_set_header Host               $host;
+                      proxy_set_header X-Real-IP          $remote_addr;
+                      proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto  $scheme;
+                  }
+              }
+          }
+
+{{ if index . "ssh_authorized_keys" }}
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        {{ range $element := .ssh_authorized_keys }}
+        - {{$element}}
+        {{end}}
+{{end}}

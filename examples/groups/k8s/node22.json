@@ -1,14 +1,18 @@
 {
-	"id": "node21",
-	"name": "etcd-node21",
+	"id": "node22",
+	"name": "etcd-node22",
 	"profile": "etcd3",
 	"selector": {
-		"mac": "a4:4c:11:13:b9:8e"
+                "uuid": "86f0bc1b-6b6d-0c4f-9896-1b2f408fcd71"
 	},
 	"metadata": {
-		"domain_name": "node21.ctocllab.cisco.com",
-                "etcd_name": "node21",
-		"etcd_initial_cluster": "node136=http://node136.ctocllab.cisco.com:2380,node22=http://node22.ctocllab.cisco.com:2380,node21=http://node21.ctocllab.cisco.com:2380",
+                "int_intf": "enp14s0",
+                "ext_intf": "enp15s0",
+                "ext_ip_address": "10.30.118.168/28",
+                "ext_gateway": "10.30.118.161",
+		"domain_name": "node22.ctocllab.cisco.com",
+                "etcd_name": "node22",
+		"etcd_initial_cluster": "node22=http://node22.ctocllab.cisco.com:2380,node13=http://node13.ctocllab.cisco.com:2380,node16=http://node16.ctocllab.cisco.com:2380",
 		"ntp_server": "173.38.201.67",
 		"pxe": "true",
 		"ssh_authorized_keys": [
